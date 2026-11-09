@@ -237,15 +237,26 @@ the log unchanged.
 
 **Moment 1**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* How to activate my Python virtual environment after
+  `source .venv/bin/activate` failed in PowerShell.
+- *What came back:* The PowerShell activation command,
+  `.\.venv\Scripts\Activate.ps1`, and guidance to use a process-scoped
+  execution-policy bypass only if script activation is blocked.
+- *What I changed:* I used a separate Python 3.13 environment for this project
+  after finding that its pinned dependencies do not support my Python 3.14
+  environment, and verified it with `python test.py`.
 
 **Moment 2**
 
-- *What I asked for:*
-- *What came back:*
-- *What I changed:*
+- *What I asked for:* Help implementing the two signals, their combined score,
+  reader-facing labels, and the appeal path for this project.
+- *What came back:* A normalized style signal, an equal-weight combination
+  rule, label wording and ranges, and an append-only appeal flow.
+- *What I changed:* I checked the separate signal scores on four calibration
+  examples, retained the formal-human disagreement as a documented limitation,
+  and treated `confidence` as the combined score—not a calibrated probability.
+  I also tested that all three labels are reachable and that appeals preserve
+  the original audit entry.
 
 <!-- ═══════════════════════ UNIT 8 — THE TEST ═══════════════════════ -->
 
