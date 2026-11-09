@@ -44,61 +44,71 @@ Two things worth knowing before you pick numbers:
 ---
 ## 1.
 
-<!-- Your criterion. It must name a number. -->
-
-
+Of 10 separate pieces of writing that I wrote myself, no more than 1 is labeled
+high-confidence AI (combined score at or above 0.65) in each of three evaluation
+trials.
 
 **Why this target:**
 
-
+I want to limit false accusations because a wrong accusation can harm a real
+writer more than a missed AI-generated passage harms the site. Requiring the
+target in all three trials checks that it is not just a lucky run.
 
 ---
 
 ## 2.
 
-<!-- Your criterion. -->
-
-
+For five texts I identify as clearly AI-written and five I identify as clearly
+human-written, the median combined score for the AI group is at least 0.20
+higher than the median for the human group in each of three trials.
 
 **Why this target:**
 
-
+The score should separate these two groups by a visible margin, not merely put
+them in a different order. A median makes the target less sensitive to one
+unusually high or low score.
 
 ---
 
 ## 3.
 
-<!-- Your criterion. -->
-
-
+When I submit a fixed set of at least nine calibration texts, at least one
+submission receives each of the three guesses (`human`, `unsure`, and `ai`) in
+each of three trials.
 
 **Why this target:**
 
-
+All three labels need to be reachable in practice; a label that exists only in
+code is not useful to a reader. Repeating the same set checks that coverage is
+not dependent on one run.
 
 ---
 
 ## 4.
 
-<!-- Your criterion. -->
-
-
+For 10 appeals submitted with an existing `content_id`, every request returns
+success, records an appeal event with that ID and the submitted reasoning, and
+leaves the submission visibly marked `under_review` in the audit history.
 
 **Why this target:**
 
-
+An appeal is the writer's recourse when a judgment is wrong. Requiring both a
+success response and a durable audit entry makes the outcome verifiable rather
+than just reassuring the caller.
 
 ---
 
 ## 5.
 
-<!-- Your criterion. -->
-
-
+Requests with missing, null, or empty `text`, and requests with more than 20,000
+characters of text, receive a JSON 4xx response rather than a 5xx response.
+After those four cases, `GET /health` still returns a successful response.
 
 **Why this target:**
 
-
+Malformed or oversized input should be rejected deliberately without crashing
+the service. A health check afterward makes it observable that the service
+survived the rejected requests.
 
 ---
 

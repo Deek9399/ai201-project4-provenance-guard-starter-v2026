@@ -90,9 +90,8 @@ def perplexity(text: str) -> float:
     but that range shifts with topic and length, which is one reason the raw
     number isn't what you score on.
     """
-    import torch
-
     model, tokenizer = _load()
+    import torch
 
     encoded = tokenizer(
         text,

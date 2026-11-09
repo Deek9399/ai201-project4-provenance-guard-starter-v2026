@@ -53,35 +53,61 @@
 
 ### Signal one — the model signal
 
-**What it measures:**
+**What it measures:** GPT-2 predictability, represented by `detector.model_signal`
+on a 0–1 scale; higher scores mean the model finds the text more predictable.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** Generated writing can
+favor common, likely word sequences, which this model finds easier to predict.
 
-**What it can't see:**
+**What it can't see:** Predictability does not establish authorship. Plain,
+conventional human writing may also be predictable, while unusual human prose
+may not be.
 
 ### Signal two — the style signal
 
-**What it measures:**
+**What it measures:** `stylometry.style_signal` combines sentence-length
+variation, vocabulary repetition (one minus type-token ratio), and punctuation
+sparseness. It returns 0–1, with higher scores meaning more AI-like.
 
-**Why that might differ between human and AI writing:**
+**Why that might differ between human and AI writing:** Even sentence lengths,
+repeated vocabulary, and sparse punctuation can appear in generated prose.
 
-**What it can't see:**
+**What it can't see:** It cannot understand meaning or authorship. Editing,
+quotes, typos, and text length can change its surface measurements without
+changing who wrote the ideas.
 
 ### The combining rule
 
-<!-- Write the rule in words, then give the numbers. What happens when the two
-     signals disagree? -->
+The combined score is the weighted mean of the model and style scores. Equal
+weights mean a disagreement pulls the result toward the middle instead of
+allowing either imperfect signal to decide alone. This is a score, not a
+calibrated probability of AI authorship.
 
-**The rule:**
+**The rule:** `(model_score + style_score) / 2`
 
-**The numbers:**
+**The numbers:** model weight `0.50`; style weight `0.50`. The style score uses
+sentence spread `0.45`, vocabulary repetition `0.40`, and punctuation
+sparseness `0.15`.
 
 **Where it lives:** `scoring.py::combine_signals`
 
 <!-- ⚠️ The grader checks your code against that line. If your rule lives
      somewhere else, say where. -->
 
-**A case where my two signals split, and what my rule does with it:**
+**A case where my two signals split, and what my rule does with it:** On a
+formal human-written paragraph, the model score was `0.5152` while the style
+score was `0.1413`. Their equal-weight average was `0.3282`, between the two
+signals and closer to the human side. This shows why neither signal should be
+treated as proof of authorship.
+
+**Four calibration examples (exploratory scores, not authorship proof):**
+
+| Input | Model | Style | Combined |
+|---|---:|---:|---:|
+| Clearly AI-style garden proposal | 0.8186 | 0.5562 | 0.6874 |
+| Clearly human tomato-garden story | 0.2974 | 0.1566 | 0.2270 |
+| Formal human committee paragraph | 0.5152 | 0.1413 | 0.3282 |
+| Lightly edited AI-style garden proposal | 0.7755 | 0.5542 | 0.6648 |
 
 
 
@@ -96,16 +122,21 @@
 
 | Label | Score range | The exact text a reader sees |
 |---|---|---|
-| high-confidence human |  |  |
-| unsure |  |  |
-| high-confidence AI |  |  |
+| high-confidence human | 0.00–0.35, inclusive | We think this was probably written by a person. |
+| unsure | Above 0.35 and below 0.65 | We can't tell whether this was written by a person or AI. This estimate can be wrong. |
+| high-confidence AI | 0.65–1.00, inclusive | This text has patterns often associated with AI-generated writing. This result is not proof of who wrote it. |
 
 **Why I worded the "unsure" one this way:**
-<!-- It's the hardest of the three. It has to admit uncertainty without
-     sounding like an accusation, because the person reading it may well have
-     written every word themselves. -->
+It admits the system cannot tell and explicitly notes that its estimate can be
+wrong, rather than treating an uncertain score as an accusation.
 
+**Label reachability check using real `/submit` requests:**
 
+| Input | Combined score | Guess returned |
+|---|---:|---|
+| Human tomato-garden story | 0.2270 | `human` |
+| Plain, conventional system description | 0.5224 | `unsure` |
+| AI-style community-garden proposal | 0.6874 | `ai` |
 
 ---
 
@@ -116,42 +147,74 @@
 
 **A submission**
 
-<!-- The response needs content_id, guess, confidence, label, AND both
-     signal scores - model_score and style_score. Unit 8's tools read those
-     two off the response, so leaving them out costs you next unit's
-     diagnostics. -->
-
 ```bash
-$ curl -X POST http://127.0.0.1:5000/submit \
-  -H "Content-Type: application/json" \
-  -d '{"text": "...", "creator_id": "..."}'
+$ curl.exe -X POST http://127.0.0.1:5001/submit -H "Content-Type: application/json" -d '{\"text\": \"The committee reviewed the proposal in light of the available evidence; its members noted several practical advantages, but also identified costs that require further consideration. No final decision was reached.\", \"creator_id\": \"milestone5-demo\"}'
 ```
 
 ```json
-
+{
+  "combined_score": 0.3282,
+  "confidence": 0.3282,
+  "content_id": "795f27d2-9fa5-43fe-8fce-094097a2f9dd",
+  "guess": "human",
+  "label": "We think this was probably written by a person.",
+  "model_score": 0.5152,
+  "style_score": 0.1413
+}
 ```
+
+`confidence` duplicates the combined score; it is not a calibrated probability.
 
 **An appeal**
 
 ```bash
-$ curl -X POST http://127.0.0.1:5000/appeal \
-  -H "Content-Type: application/json" \
-  -d '{"content_id": "...", "reasoning": "..."}'
+$ curl.exe -X POST http://127.0.0.1:5001/appeal -H "Content-Type: application/json" -d '{\"content_id\": \"795f27d2-9fa5-43fe-8fce-094097a2f9dd\", \"reasoning\": \"I wrote this myself and would like a human review.\"}'
 ```
 
 ```json
-
+{
+  "content_id": "795f27d2-9fa5-43fe-8fce-094097a2f9dd",
+  "message": "Your appeal has been recorded for review.",
+  "status": "under_review"
+}
 ```
 
 **What the log shows afterwards**
 
 ```bash
-$ curl "http://127.0.0.1:5000/log?limit=3"
+$ curl.exe "http://127.0.0.1:5001/log?limit=2"
 ```
 
 ```json
-
+{
+  "count": 2,
+  "entries": [
+    {
+      "combined_score": 0.3282,
+      "content_id": "795f27d2-9fa5-43fe-8fce-094097a2f9dd",
+      "creator_id": "milestone5-demo",
+      "guess": "human",
+      "label": "We think this was probably written by a person.",
+      "model_score": 0.5152,
+      "style_score": 0.1413,
+      "status": "decided",
+      "timestamp": "2026-11-09T01:15:32+00:00"
+    },
+    {
+      "content_id": "795f27d2-9fa5-43fe-8fce-094097a2f9dd",
+      "creator_id": "milestone5-demo",
+      "event": "appeal",
+      "reasoning": "I wrote this myself and would like a human review.",
+      "status": "under_review",
+      "timestamp": "2026-11-09T01:15:32+00:00"
+    }
+  ]
+}
 ```
+
+The service ran on port 5001 for this check to avoid a process already using
+port 5000. The appeal is appended after the original decision, which remains in
+the log unchanged.
 
 ---
 

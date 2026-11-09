@@ -2,7 +2,7 @@
 Turning two numbers into one, and one number into something a person can read.
 ← YOU BUILD THIS IN MILESTONES 4 AND 5
 
-Two functions live here, and both are stubs.
+Signal combination is implemented here. Label wording remains for Milestone 5.
 
 `combine_signals` is where your false-positive decision from Milestone 1
 actually gets made. Everything above it — the labels, the appeal path — is
@@ -16,12 +16,14 @@ function holding your combining rule. The grader checks your code against what
 you claim, so that line should read `scoring.py::combine_signals`.
 """
 
+import math
+
 import config
 
 
 def combine_signals(model_score: float, style_score: float) -> float:
     """
-    Combine two 0–1 signals into one 0–1 score. ← TODO (Milestone 4)
+    Combine two 0–1 signals into one 0–1 score.
 
     Both inputs point the same way: higher means more likely AI. Your output
     should too.
@@ -31,7 +33,7 @@ def combine_signals(model_score: float, style_score: float) -> float:
         style_score: from `stylometry.style_signal` — the shape of the text.
 
     Returns:
-        A float from 0.0 (confidently human) to 1.0 (confidently AI).
+        A float from 0.0 (more human-like signals) to 1.0 (more AI-like signals).
 
     ⚠️ **Write the rule down before you code it, and put the numbers in your
     README.** A weighted average is the obvious choice and it is not the only
@@ -49,21 +51,40 @@ def combine_signals(model_score: float, style_score: float) -> float:
       - Milestone 4 asks you to find a case where your two signals split and
         write it down. That case is what this rule exists to handle.
 
-    The weights in config.py are placeholders. Change them, or ignore them and
-    write a different rule.
+    The configured weights are normalized before use so they always produce a
+    weighted average when their total is positive.
     """
-    # TODO: replace this
-    return (
+    for name, value in (
+        ("model_score", model_score),
+        ("style_score", style_score),
+    ):
+        if not isinstance(value, (int, float)) or not math.isfinite(value):
+            raise ValueError(f"{name} must be a finite number between 0 and 1.")
+        if not 0.0 <= value <= 1.0:
+            raise ValueError(f"{name} must be between 0 and 1.")
+
+    weights = (config.WEIGHT_MODEL_SIGNAL, config.WEIGHT_STYLE_SIGNAL)
+    if any(
+        not isinstance(weight, (int, float))
+        or not math.isfinite(weight)
+        or weight < 0
+        for weight in weights
+    ):
+        raise ValueError("Signal weights must be finite non-negative numbers.")
+    weight_total = sum(weights)
+    if weight_total == 0:
+        raise ValueError("Signal weights must have a positive total.")
+
+    combined = (
         config.WEIGHT_MODEL_SIGNAL * model_score
         + config.WEIGHT_STYLE_SIGNAL * style_score
-    )
+    ) / weight_total
+    return round(min(max(combined, 0.0), 1.0), 4)
 
 
 def score_to_label(score: float) -> tuple[str, str]:
     """
     Turn a score into a guess and the text a reader actually sees.
-    ← TODO (Milestone 5)
-
     Returns:
         (guess, label_text) — where `guess` is a short machine-readable string
         like "ai" / "human" / "unsure", and `label_text` is the full sentence
@@ -85,12 +106,24 @@ def score_to_label(score: float) -> tuple[str, str]:
     think if they got it on their own work. That question is the whole
     milestone.
     """
-    # TODO: replace this — thresholds are in config.py
+    if not isinstance(score, (int, float)) or not math.isfinite(score):
+        raise ValueError("score must be a finite number between 0 and 1.")
+    if not 0.0 <= score <= 1.0:
+        raise ValueError("score must be between 0 and 1.")
+
     if score >= config.AI_THRESHOLD:
-        return "ai", "PLACEHOLDER — write the high-confidence AI label."
+        return (
+            "ai",
+            "This text has patterns often associated with AI-generated writing. "
+            "This result is not proof of who wrote it.",
+        )
     if score <= config.HUMAN_THRESHOLD:
-        return "human", "PLACEHOLDER — write the high-confidence human label."
-    return "unsure", "PLACEHOLDER — write the unsure label."
+        return "human", "We think this was probably written by a person."
+    return (
+        "unsure",
+        "We can't tell whether this was written by a person or AI. "
+        "This estimate can be wrong.",
+    )
 
 
 def label_ranges() -> list[tuple[str, str]]:
@@ -99,7 +132,10 @@ def label_ranges() -> list[tuple[str, str]]:
     label text — given to you so the numbers can't drift apart from config.py.
     """
     return [
-        ("high-confidence human", f"0.00 – {config.HUMAN_THRESHOLD:.2f}"),
-        ("unsure", f"{config.HUMAN_THRESHOLD:.2f} – {config.AI_THRESHOLD:.2f}"),
+        ("high-confidence human", f"0.00 – {config.HUMAN_THRESHOLD:.2f} (inclusive)"),
+        (
+            "unsure",
+            f"above {config.HUMAN_THRESHOLD:.2f} and below {config.AI_THRESHOLD:.2f}",
+        ),
         ("high-confidence AI", f"{config.AI_THRESHOLD:.2f} – 1.00"),
     ]
