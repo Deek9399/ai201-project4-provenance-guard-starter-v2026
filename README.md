@@ -39,6 +39,21 @@
 <!-- The path a submission takes, from arriving to the label a reader sees.
      Six or seven steps — this is the trace you wrote in Milestone 1. -->
 
+1. A writer sends `POST /submit` with a `text` string and a `creator_id`.
+2. `app.py::submit` checks that the JSON body and both fields are valid and
+   rejects empty or oversized text before scoring.
+3. `detector.model_signal` measures how predictable the text is to the local
+   GPT-2 model and returns a 0–1 model score.
+4. `stylometry.style_signal` measures surface features—sentence-length spread,
+   vocabulary repetition, and punctuation—and returns a 0–1 style score.
+5. `scoring.combine_signals` takes the equal-weight average of those scores.
+6. `scoring.score_to_label` maps the combined score to `human`, `unsure`, or
+   `ai`, along with the exact reader-facing sentence.
+7. The service records the content ID, creator ID, both signal scores,
+   combined score, guess, and label in the append-only audit log, then returns
+   them in JSON. A writer can later send the content ID and their reasoning to
+   `POST /appeal`; the appeal is appended to the log with status
+   `under_review`, preserving the original decision.
 
 
 ---
