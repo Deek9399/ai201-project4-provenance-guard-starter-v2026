@@ -163,14 +163,14 @@ wrong, rather than treating an uncertain score as an accusation.
 **A submission**
 
 ```bash
-$ curl.exe -X POST http://127.0.0.1:5001/submit -H "Content-Type: application/json" -d '{\"text\": \"The committee reviewed the proposal in light of the available evidence; its members noted several practical advantages, but also identified costs that require further consideration. No final decision was reached.\", \"creator_id\": \"milestone5-demo\"}'
+$ curl.exe -X POST http://127.0.0.1:5001/submit -H "Content-Type: application/json" -d '{\"text\": \"The committee reviewed the proposal in light of the available evidence; its members noted several practical advantages, but also identified costs that require further consideration. No final decision was reached.\", \"creator_id\": \"milestone6-demo\"}'
 ```
 
 ```json
 {
   "combined_score": 0.3282,
   "confidence": 0.3282,
-  "content_id": "795f27d2-9fa5-43fe-8fce-094097a2f9dd",
+  "content_id": "17156163-b0f3-4783-9c88-efa5608015de",
   "guess": "human",
   "label": "We think this was probably written by a person.",
   "model_score": 0.5152,
@@ -183,12 +183,12 @@ $ curl.exe -X POST http://127.0.0.1:5001/submit -H "Content-Type: application/js
 **An appeal**
 
 ```bash
-$ curl.exe -X POST http://127.0.0.1:5001/appeal -H "Content-Type: application/json" -d '{\"content_id\": \"795f27d2-9fa5-43fe-8fce-094097a2f9dd\", \"reasoning\": \"I wrote this myself and would like a human review.\"}'
+$ curl.exe -X POST http://127.0.0.1:5001/appeal -H "Content-Type: application/json" -d '{\"content_id\": \"17156163-b0f3-4783-9c88-efa5608015de\", \"reasoning\": \"I wrote this myself and would like a human review.\"}'
 ```
 
 ```json
 {
-  "content_id": "795f27d2-9fa5-43fe-8fce-094097a2f9dd",
+  "content_id": "17156163-b0f3-4783-9c88-efa5608015de",
   "message": "Your appeal has been recorded for review.",
   "status": "under_review"
 }
@@ -206,22 +206,22 @@ $ curl.exe "http://127.0.0.1:5001/log?limit=2"
   "entries": [
     {
       "combined_score": 0.3282,
-      "content_id": "795f27d2-9fa5-43fe-8fce-094097a2f9dd",
-      "creator_id": "milestone5-demo",
+      "content_id": "17156163-b0f3-4783-9c88-efa5608015de",
+      "creator_id": "milestone6-demo",
       "guess": "human",
       "label": "We think this was probably written by a person.",
       "model_score": 0.5152,
       "style_score": 0.1413,
       "status": "decided",
-      "timestamp": "2026-11-09T01:15:32+00:00"
+      "timestamp": "2026-11-09T01:23:54+00:00"
     },
     {
-      "content_id": "795f27d2-9fa5-43fe-8fce-094097a2f9dd",
-      "creator_id": "milestone5-demo",
+      "content_id": "17156163-b0f3-4783-9c88-efa5608015de",
+      "creator_id": "milestone6-demo",
       "event": "appeal",
       "reasoning": "I wrote this myself and would like a human review.",
       "status": "under_review",
-      "timestamp": "2026-11-09T01:15:32+00:00"
+      "timestamp": "2026-11-09T01:23:54+00:00"
     }
   ]
 }
