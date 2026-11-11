@@ -153,14 +153,16 @@ one signal. Then log it.
 
 ---
 
-## Turning on rate limiting (unit 8)
+## Rate limiting (unit 8)
 
-Three steps:
+Rate limiting is enabled for `/submit`. The current limits in `config.py` are
+5 submissions per minute and 100 per day per `creator_id`. Requests with no
+usable creator ID fall back to the caller's address. The `@limiter.limit(...)`
+decorator is active above `submit` in `app.py`.
 
-1. In `config.py`, set `RATE_LIMITING_ENABLED = True` — or run with
-   `AI201_RATE_LIMITS=1`.
-2. Choose your numbers there.
-3. In `app.py`, uncomment the `@limiter.limit(...)` line above `submit`.
+The limiter uses in-memory storage, so its counts reset when the service
+restarts. The keying scheme gives each creator ID its own quota; a client that
+can rotate creator IDs can get separate buckets.
 
 Then push past your limit and watch for `429`:
 
@@ -176,8 +178,8 @@ The attack set can't do this for you. Every attack row submits under its own
 `creator_id`, so a full attack run looks like forty-odd different callers and
 never trips a limit however long it is.
 
-No `429` at all? Either your limit is above 15 a minute, or rate limiting is
-still off. `GET /health` reports which.
+No `429` at all? Check `GET /health` to see whether rate limiting is active,
+and verify the request burst exceeds the configured per-minute limit.
 
 Rejections are logged for you. **An attack that shows up only as an absence is
 one you'll never find** — a thousand requests that got a `429` and left no

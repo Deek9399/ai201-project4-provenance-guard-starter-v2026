@@ -37,16 +37,8 @@ import stylometry
 app = Flask(__name__)
 
 
-# ── Rate limiting — UNIT 8 ────────────────────────────────────────────────────
-# Off until you turn it on. In unit 8, Milestone 1:
-#
-#   1. Set RATE_LIMITING_ENABLED = True in config.py (or AI201_RATE_LIMITS=1)
-#   2. Choose your numbers there
-#   3. Uncomment the @limiter.limit(...) line on /submit below
-#
-# The order doesn't matter. While limiting is off, that decorator is a no-op
-# that quietly does nothing, so uncommenting it early costs you nothing — but
-# it also means no 429 until you've done step 1.
+# ── Rate limiting ────────────────────────────────────────────────────────────
+# Enabled for /submit; limits are in config.py and the key function is below.
 #
 # The storage backend is preconfigured, which stops Flask-Limiter printing a
 # warning on every start. In-memory is right for one laptop and wrong for
@@ -54,11 +46,10 @@ app = Flask(__name__)
 
 class _LimiterOff:
     """
-    Stands in for the real limiter while rate limiting is off.
+    Stands in for the real limiter when rate limiting is disabled.
 
     It makes @limiter.limit(...) a decorator that returns the route
-    untouched, so uncommenting the line before you flip the setting is
-    harmless instead of a crash on startup.
+    untouched, so the route remains importable without Flask-Limiter.
     """
 
     def limit(self, *args, **kwargs):
@@ -74,10 +65,8 @@ if config.RATE_LIMITING_ENABLED:
         """
         Who a request counts against.
 
-        Falling back to the caller's address is the easy version. Unit 8's
-        stretch asks about per-creator limits instead — and the difference
-        matters: one script can look like a thousand callers, and one household
-        can look like one.
+        Use creator_id when supplied, so each writer has a separate quota.
+        Requests without a usable creator_id share the caller-address quota.
         """
         payload = request.get_json(silent=True)
         # A body that parses as JSON but isn't an object — a bare list or
@@ -106,8 +95,11 @@ if config.RATE_LIMITING_ENABLED:
         payload = request.get_json(silent=True)
         if not isinstance(payload, dict):
             payload = {}
+        creator_id = payload.get("creator_id")
+        if not isinstance(creator_id, str) or not creator_id.strip():
+            creator_id = "unknown"
         audit.log_rejection(
-            creator_id=payload.get("creator_id", "unknown"),
+            creator_id=creator_id.strip(),
             reason="rate_limited",
             limit=str(exc.description),
         )
@@ -154,7 +146,7 @@ def health():
 # ── YOU BUILD THIS ────────────────────────────────────────────────────────────
 
 @app.post("/submit")
-# @limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
+@limiter.limit(f"{config.RATE_LIMIT_PER_MINUTE}/minute;{config.RATE_LIMIT_PER_DAY}/day")
 def submit():
     """
     Take a piece of text, decide about it, log the decision, answer.
@@ -204,6 +196,7 @@ def submit():
     """
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
+        audit.log_rejection(creator_id="unknown", reason="invalid_request")
         return jsonify({
             "error": "invalid_request",
             "message": "Send a JSON object with text and creator_id fields.",
@@ -211,17 +204,29 @@ def submit():
 
     text = payload.get("text")
     creator_id = payload.get("creator_id")
+    log_creator_id = (
+        creator_id.strip()
+        if isinstance(creator_id, str) and creator_id.strip()
+        else "unknown"
+    )
     if not isinstance(text, str) or not text.strip():
+        audit.log_rejection(creator_id=log_creator_id, reason="invalid_text")
         return jsonify({
             "error": "invalid_text",
             "message": "text must be a non-empty string.",
         }), 400
     if len(text) > 20000:
+        audit.log_rejection(
+            creator_id=log_creator_id,
+            reason="text_too_long",
+            text_length=len(text),
+        )
         return jsonify({
             "error": "text_too_long",
             "message": "text must be no more than 20000 characters.",
         }), 400
     if not isinstance(creator_id, str) or not creator_id.strip():
+        audit.log_rejection(creator_id="unknown", reason="invalid_creator_id")
         return jsonify({
             "error": "invalid_creator_id",
             "message": "creator_id must be a non-empty string.",
@@ -231,11 +236,20 @@ def submit():
         model_score = detector.model_signal(text)
         style_score = stylometry.style_signal(text)
     except detector.DetectorUnavailable as exc:
+        audit.log_rejection(
+            creator_id=log_creator_id,
+            reason="detector_unavailable",
+        )
         return jsonify({
             "error": "detector_unavailable",
             "message": str(exc),
         }), 503
     except ValueError as exc:
+        audit.log_rejection(
+            creator_id=log_creator_id,
+            reason="invalid_text",
+            detail=str(exc),
+        )
         return jsonify({
             "error": "invalid_text",
             "message": str(exc),

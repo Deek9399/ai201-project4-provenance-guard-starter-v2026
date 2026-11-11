@@ -264,24 +264,94 @@ the log unchanged.
 
 ## Rate Limiting
 
-**My limits:** ___ per minute, ___ per day
+**My limits:** 5 submissions per minute and 100 per day per creator ID.
 
 **Why those numbers and not others:**
-<!-- Think about two people: a real writer submitting their own work a few
-     times an hour, and a script sending a thousand variations to map your
-     thresholds. Your numbers have to be liveable for the first and hostile to
-     the second. -->
+Five requests per minute allows a writer to make a few quick corrections but
+stops a rapid burst from the same account; 100 per day leaves room for normal
+use while limiting repeated probing. These are practical local-project limits,
+not a guarantee against someone who can rotate creator IDs. The limiter uses
+in-memory storage, so counts reset on restart.
 
-**What a caller counts as:** <!-- per address, or per creator_id? They fail
-differently — one script can look like a thousand callers, and one household
-can look like one. -->
+**What a caller counts as:** The supplied `creator_id`; if it is missing or
+invalid, the caller's IP address is used instead. This keeps separate writers
+on one address from sharing a quota, but a client that invents new creator IDs
+can get separate buckets.
 
 **The run of status codes when I pushed past it:**
 
-<!-- python run_attacks.py --flood 15 -->
-
+```powershell
+python run_attacks.py --flood 15 --creator milestone8-flood-final --url http://127.0.0.1:5001
 ```
 
+```
+200 200 200 200 200 429 429 429 429 429 429 429 429 429 429
+```
+
+Ten of the 15 submissions were rejected. The generated report is
+`results/flood_2026-11-10_2308.md`.
+
+**Audit log check:** Three valid submissions and one request missing `text`
+were sent. `GET /log?limit=100` returned 21 entries, including the three
+decisions, the invalid-request rejection, and all 10 rate-limit rejections.
+Every decision entry contained all nine required fields: timestamp,
+content_id, creator_id, guess, model_score, style_score, combined_score,
+label, and status. Here is the actual tail from `GET /log?limit=5`:
+
+```json
+{
+  "count": 5,
+  "entries": [
+    {
+      "creator_id": "milestone8-flood-final",
+      "event": "rejected",
+      "limit": "5 per 1 minute",
+      "reason": "rate_limited",
+      "status": "rejected",
+      "timestamp": "2026-11-11T04:08:50+00:00"
+    },
+    {
+      "combined_score": 0.5221,
+      "content_id": "d269b93a-bf03-48e0-803a-865bca494ebc",
+      "creator_id": "milestone8-log-final-1",
+      "guess": "unsure",
+      "label": "We can't tell whether this was written by a person or AI. This estimate can be wrong.",
+      "model_score": 0.5977,
+      "status": "decided",
+      "style_score": 0.4464,
+      "timestamp": "2026-11-11T04:09:00+00:00"
+    },
+    {
+      "combined_score": 0.2275,
+      "content_id": "a6c0dda1-0205-4a22-8fc0-3773a78e68a6",
+      "creator_id": "milestone8-log-final-2",
+      "guess": "human",
+      "label": "We think this was probably written by a person.",
+      "model_score": 0.2063,
+      "status": "decided",
+      "style_score": 0.2487,
+      "timestamp": "2026-11-11T04:09:00+00:00"
+    },
+    {
+      "combined_score": 0.4969,
+      "content_id": "d702e265-daf9-45d5-b5d1-6f6a04bd7863",
+      "creator_id": "milestone8-log-final-3",
+      "guess": "unsure",
+      "label": "We can't tell whether this was written by a person or AI. This estimate can be wrong.",
+      "model_score": 0.6039,
+      "status": "decided",
+      "style_score": 0.3898,
+      "timestamp": "2026-11-11T04:09:00+00:00"
+    },
+    {
+      "creator_id": "milestone8-invalid-final",
+      "event": "rejected",
+      "reason": "invalid_text",
+      "status": "rejected",
+      "timestamp": "2026-11-11T04:09:00+00:00"
+    }
+  ]
+}
 ```
 
 ---
